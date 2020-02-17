@@ -1,0 +1,71 @@
+import boto3
+import datetime
+import time
+
+def emailalert(isstarted):
+    if isstarted==1:
+        emailmessage="RDS STARTED"
+    else:
+        emailmessage="RDS STOPPED"
+    snsclient = boto3.client('sns',region_name='us-east-2')
+    response = snsclient.publish(TargetArn='ENTER TARGET TOPIC ARN'),
+    Message=emailmessage,
+    Subject='RDS NOTIFICATION',
+    MessageStructure='string',)
+    print('email alert sent')
+        
+def lambda_handler(event, context):
+    
+    
+    dbname='ENTER YOUR DB NAME HERE'
+    currentdate=datetime.datetime.now().date()
+    currentdatestr="'"+str(currentdate)+"'"
+    currenttime=datetime.datetime.now().time()
+    dbstoptime = currenttime.replace(hour=17, minute=0, second=0, microsecond=0)
+    dbstarttime=currenttime.replace(hour=2, minute=0, second=0, microsecond=0) 
+    print('current datetime is ')
+    
+    print(currenttime)
+    print('dbstoptime is ')
+    print(dbstoptime)
+    print('dbstarttime is')
+    print(dbstarttime)
+    
+    #checking the RDS instance status
+    client = boto3.client('rds')
+    response = client.describe_db_instances(DBInstanceIdentifier=dbname,)
+    dbstatus = response.get('DBInstances')[0].get('DBInstanceStatus')
+    print('Current database status :')
+    print(dbstatus)
+    
+    if dbstatus=='available' or dbstatus=='stopped':
+        
+        #stopping DB
+        if (currenttime > dbstoptime) and dbstatus=='available':
+            print('Its 10 in the night. Stopping DB now')
+            print("currenttime > dbstoptime and DB status is available.. ")
+            print(currenttime)
+            print(dbstoptime)
+            stopresponse = client.stop_db_instance(DBInstanceIdentifier=dbname)
+            print('waiting for DB to stop')
+            responseafterstopping = client.describe_db_instances(DBInstanceIdentifier=dbname,)
+            dbstatusafterstopping = responseafterstopping.get('DBInstances')[0].get('DBInstanceStatus')
+            print('Current DB status is ')
+            print(dbstatusafterstopping)
+            emailalert(0)
+        
+        #starting DB 
+        if (currenttime > dbstarttime and currenttime < dbstoptime) and dbstatus=='stopped':
+            print('DB is stopped. Starting the DB for the day')
+            print("currenttime > dbstarttime and DB status is stopped.. ")
+            print(currenttime)
+            print(dbstarttime)
+            startresponse = client.start_db_instance(DBInstanceIdentifier=dbname)
+            print('waiting for DB to start')
+            responseafterstarting = client.describe_db_instances(DBInstanceIdentifier=dbname,)
+            dbstatusafterstarting = responseafterstarting.get('DBInstances')[0].get('DBInstanceStatus')
+            print('current DB status is ')
+            print(dbstatusafterstarting)
+            emailalert(1)
+    
+    
